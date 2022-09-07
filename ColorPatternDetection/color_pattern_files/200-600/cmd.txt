@@ -1,0 +1,1 @@
+GenerateCodeBoardSaturated --width 600 --height 200 --rotations 4  --maxCorrection 1000 --noBlack --splitWidth 3 --block 80 --padding 10 --min 50 --board board.png
