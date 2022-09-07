@@ -1,0 +1,202 @@
+root_dir: /mnt/captures/chenglei/recordings/AutumnBodyGHS
+codec_dir: ${root_dir}/codecTempRL
+
+preprocessing_dir: /mnt/home/oshrihalimi/cloth_completion/data_processing/s--20210823--1323--0000000--pilot--patternCloth
+clothes_codec_dir: ${preprocessing_dir}/clothesCodec/
+kinematic_dir: /mnt/home/oshrihalimi/Data/ColorPatternClothCompletionData/kinematic_tracking/
+
+module_prefix: models.conv_vae_2k_clothes
+
+#raw_sequence_dir: /mnt/captures/studies/pilots/sociopticon/Aug18/s--20210823--1323--0000000--pilot--patternCloth/
+raw_sequence_dir: /mnt/home/oshrihalimi/pycharm/cloth_completion/assets/raw_sequence_dir
+
+overwrite: False
+
+num_pose_dims: 98  # 104 (new format) - 6 (global transformation)
+
+num_embs_channels: 64
+
+noise_std: 0.05
+
+model:
+  class_name: ${module_prefix}.RegionVAE
+  requires_dataset: True
+  config:
+    # use_masks: False
+
+    encoder:
+      class_name: ${module_prefix}.ConvEncoder
+      requires_dataset: True
+      config:
+        global_scaling: ${dataset.global_scaling}
+        num_pose_dims: ${num_pose_dims}
+        num_blocks: 7
+        num_channels: [3, 4, 8, 16, 16, 32, 32, 64]
+        num_embs_channels: ${num_embs_channels}
+
+        # TODO: should it be in on place only?
+        uv_size: 1024
+        noise_std: ${noise_std}
+        encode_texture: False
+
+    decoder:
+      class_name: ${module_prefix}.ConvDecoder
+      requires_dataset: True
+      config:
+        # NOTE: we should somehow fix this elsewhere?
+        batch_size: ${training.batch_size}
+        body_lbs: ${body_lbs}
+        clothes_lbs: ${clothes_lbs}
+        global_scaling: ${dataset.global_scaling}
+
+        init_uv_size: 32
+        init_channels: 64
+        min_channels: 4
+
+        num_pose_dims: ${num_pose_dims}
+        num_pose_enc_dims: 94
+        num_embs_channels: 64 #  64 -> when texture is not encoded and 128-> when texture is encoded (we have twice more channels)
+        uv_size: 2048
+
+        warping: False
+
+        body_conditioned_on_pose: True
+        body_conditioned_on_face_kpts: False
+        body_conditioned_on_latent: False
+
+        n_face_kpts: 148
+        n_face_embs_enc_channels: 32
+
+        # DONE!
+        pose_regions_path: /mnt/home/tshiratori/data/Sociopticon/s--20190605--1305--8027506--GHS/lbs_pose_regions.npy  # 104-DoF version
+
+split: # DONE!
+  all:
+    frame_list_path: /mnt/home/donglaix/Codec/CodecHand/configs/splits/patterned_cloth/all.txt
+
+  train:
+    frame_list_path: /mnt/home/donglaix/Codec/CodecHand/configs/splits/patterned_cloth/train.txt
+
+  val:
+    frame_list_path: /mnt/home/donglaix/Codec/CodecHand/configs/splits/patterned_cloth/val.txt
+
+  test:
+    frame_list_path: /mnt/home/donglaix/Codec/CodecHand/configs/splits/patterned_cloth/val.txt
+
+
+body_lbs: # DONE!
+  model_json_path: ${kinematic_dir}/small_pattern/averageman_artist_v01_beta/model/Codec-Body.json
+  model_txt_path: ${kinematic_dir}/small_pattern/averageman_artist_v01_beta/model/averageman_v01_Body.cfg
+  num_max_skin_joints: 8
+
+
+clothes_lbs: # DONE!
+  model_json_path: ${preprocessing_dir}/clothesCodec/clothes_lbs/codec.json
+  model_txt_path: ${kinematic_dir}/small_pattern/averageman_artist_v01_beta/model/averageman_v01_Body.cfg
+  num_max_skin_joints: 9  # some vertices are skinned by 9 joints
+
+
+dataset:
+  base_dir: ${root_dir}
+  # settings for uv images
+  uv_size: 2048
+
+  # global scaling?
+  global_scaling: [10.,-10.,-10.]
+
+  # DONE!
+  # body_reference_mesh_path: /mnt/home/fabianprada/Data/SociopticonProcessing/s--20210823--1323--0000000--pilot--patternCloth/kinematic_tracking/small_pattern/averageman_artist_v01_beta/model/Codec-Body.obj
+  # body_reference_uv_mapping_path: ${codec_dir}/uvmappings.txt  # reuse Body data # DONE!
+  # body_nbs_idxs_path: ${codec_dir}/neighboridx.txt # DONE!
+  # body_nbs_weights_path: ${codec_dir}/neighborwts.txt # DONE!
+  #cbody_verts_unposed_mean_path: /mnt/home/donglaix/s--20210823--1323--0000000--pilot--patternCloth/clothesCodec/body_unposed_mean.ply # DONE!
+
+  clothes_reference_mesh_path: ${clothes_codec_dir}/seamlessTexture_from_ply.obj # DONE!
+  clothes_reference_uv_mapping_path: ${clothes_codec_dir}/uvmappings.txt # DONE!
+  clothes_nbs_idxs_path: ${clothes_codec_dir}/neighboridx.txt # DONE!
+  clothes_nbs_weights_path: ${clothes_codec_dir}/neighborwts.txt # DONE!
+  clothes_verts_unposed_mean_path: ${clothes_codec_dir}/clothes_unposed_mean.ply # DONE!
+
+  # motion selection parameters
+  motion_path: ${kinematic_dir}/small_pattern/averageman_artist_v01_beta/momentum/skeleton_tracking/CompactPose/pose-{frame:06d}.txt
+  # body_lbs_template_path: ${clothes_codec_dir}/body_unposed_mean.ply
+  # body_lbs_scale_path: /mnt/home/fabianprada/Data/SociopticonProcessing/s--20210823--1323--0000000--pilot--patternCloth/kinematic_tracking/small_pattern/averageman_artist_v01_beta/kinematic_alignment/body_personalization/personalized/final/scale.txt
+  # provided the single-layer body trackingh here, but should not be used supervision
+  # body_geometry_mesh_path: /mnt/home/donglaix/s--20210823--1323--0000000--pilot--patternCloth/singleLayerCodecRes/{frame:06d}.ply
+
+  clothes_lbs_template_path: ${clothes_codec_dir}/clothes_unposed_mean.ply
+  clothes_lbs_scale_path: ${kinematic_dir}/small_pattern/averageman_artist_v01_beta/kinematic_alignment/body_personalization/personalized/final/scale.txt
+  clothes_geometry_mesh_path: /mnt/home/fabianprada/Data/SociopticonProcessing/s--20210823--1323--0000000--pilot--patternCloth/shirt_tracking/small_pattern/surface_deformable/incremental_registration/Meshes/skinned-{frame:06d}.ply
+
+  krt_path: ${raw_sequence_dir}/KRTnodoor
+  valid_camera_prefix: ["400143"]
+  sample_cameras: True
+  inverse_rendering: True
+
+  # image_path: ${raw_sequence_dir}/undistorted/cam{camera}/image{frame:04d}.png
+  # image_part_mask_path: /mnt/captures/studies/pilots/sociopticon/Aug18/s--20210823--1323--0000000--pilot--patternCloth/experimental/segmentation_part/predictions/segmentation/cam{camera}/image{frame:04d}.png
+
+  ignore_masks_path: /mnt/home/donglaix/s--20210823--1323--0000000--pilot--patternCloth/lodstar_masks/{camera}_mask.png
+  #background_path: ${raw_sequence_dir}/undistorted/cam{camera}/image12000.png
+
+  image_height: 4096
+  image_width: 2668
+  image_ds_rate: 2
+
+  # set dummy mean texture, not used for supervision
+  # tex_path: /mnt/home/donglaix/s--20210823--1323--0000000--pilot--patternCloth/clothesCodec/mean_texture_median_inp.png
+  # tex_mean_path: /mnt/home/donglaix/s--20210823--1323--0000000--pilot--patternCloth/clothesCodec/mean_texture_median_inp.png
+  tex_path: /mnt/home/oshrihalimi/Data/RenderingGeometry/texture_global.jpeg
+  tex_mean_path: /mnt/home/oshrihalimi/Data/RenderingGeometry/texture_global.jpeg
+
+training:
+  tag: patterned_cloth_pretraining_full_geometry_loss_self_loop
+  batch_size: 2
+  num_epochs: 100
+  num_max_iters: 40001
+
+  # pretrained_model:
+  #   strict: False
+  #   path: /mnt/home/timurb/data/autumn-riglord-codec/outputs_wdialog_newtex_ir/conv_vae_view_2k_zeroing_median_nogrec_lstep/checkpoints/199000.pt
+
+  # TODO: should be there a smaller LR for pre-trained parts?
+  optimizer:
+    kind: 'train_encoder_decoder'
+    class_name: torch.optim.AdamW
+    config:
+      lr: 1.0e-3
+
+  # TODO: we can actually have different schedulers for different
+  # parameters?
+  lr_scheduler:
+    class_name: torch.optim.lr_scheduler.MultiStepLR
+    config:
+      milestones: [1, 2, 3, 4, 5]
+      gamma: 0.9
+
+  update_lr_every: 4000
+
+  log_every: 10
+  summary_every: 10
+  save_every: 2000
+  val_every: 10000
+  test_every: 80000
+
+  # TODO: this should be
+  num_workers: 4
+  shuffle: True
+
+  # where to store outputs
+  output_dir: /mnt/home/oshrihalimi/cloth_completion/CodecOutput/${training.tag}
+  verbose_logging: True
+
+loss:
+  class_name: ${module_prefix}.TotalVAELoss
+  config:
+    weights:
+      # only apply loss to clothes geometry
+      clothes_geometry_laplacian: 0.0 #50.0
+      clothes_geometry_rec: 0.5
+      loss_clothes_normals_rec: 0.0 #50
+      clothes_tex_rec: 0.0
+      kl: 1.0
